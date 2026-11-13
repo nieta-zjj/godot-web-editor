@@ -1,0 +1,43 @@
+name: Server storage
+
+on:
+  push:
+    branches: [main, feat_server_storage]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-storage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: godot-server-${{ hashFiles('scripts/download-engine.mjs') }}
+      - run: npm run engine
+      - run: npx playwright install --with-deps chromium
+      - name: Real browser and Godot verification
+        env:
+          GWE_BROWSER_TMP: /home/runner/gwe-browser
+        run: npm run test:server-e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-e2e-result
+          path: .runtime/server-e2e-result.json
+          retention-days: 7

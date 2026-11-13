@@ -1,12 +1,17 @@
 // Godot 웹 에디터 엔진 실행 관리 (공식 godot.editor.html의 시작 로직을 정리한 것)
 /* global Engine */
 
+import { GameFrame } from './game-runtime.js';
+
 export class GodotHost extends EventTarget {
   editor = null;
   game = null;
 
-  constructor({ editorCanvas, gameCanvas, gameLayer, logs }) {
+  constructor({ editorCanvas, gameCanvas, gameLayer, logs, persistentPaths = ['/home/web_user'], prepareGame = async () => {}, prepareEditor = async () => {} }) {
     super();
+    this.persistentPaths = persistentPaths;
+    this.prepareGame = prepareGame;
+    this.prepareEditor = prepareEditor;
     this.editorCanvas = editorCanvas;
     this.gameCanvas = gameCanvas;
     this.gameLayer = gameLayer;
@@ -64,7 +69,7 @@ export class GodotHost extends EventTarget {
 
   #gameConfig() {
     return {
-      persistentPaths: ['/home/web_user'],
+      persistentPaths: this.persistentPaths,
       unloadAfterInit: false,
       canvas: this.gameCanvas,
       canvasResizePolicy: 1,
@@ -90,11 +95,14 @@ export class GodotHost extends EventTarget {
         return;
       }
       this.gameLayer.hidden = false;
-      this.game = new Engine(this.#gameConfig());
-      this.game.init().then(() => {
-        requestAnimationFrame(() => {
-          this.game.start({ args, canvas: this.gameCanvas }).then(() => this.gameCanvas.focus());
-        });
+      this.game = this.persistentPaths.length ? new Engine(this.#gameConfig()) : new GameFrame(this.#gameConfig());
+      this.game.init().then(async () => {
+        await this.prepareGame(this.game);
+        await this.game.start({ args, canvas: this.gameCanvas });
+        this.gameCanvas.focus();
+      }).catch((error) => {
+        this.logs.error(error.message);
+        this.dispatchEvent(new CustomEvent('game-error', { detail: error }));
       });
       this.dispatchEvent(new Event('game-start'));
       return;
@@ -102,7 +110,8 @@ export class GodotHost extends EventTarget {
     // 에디터 재시작(프로젝트 다시 불러오기 등): 현재 에디터가 종료되면 같은 캔버스에서 다시 시작
     this._onEditorExit = () => {
       setTimeout(() => {
-        this.editor.init().then(() => {
+        this.editor.init().then(async () => {
+          await this.prepareEditor(this.editor);
           this._onEditorExit = null;
           this.editor.start({ args, persistentDrops: isProjectManager, canvas: this.editorCanvas });
           this.dispatchEvent(new Event('editor-restart'));
@@ -119,7 +128,7 @@ export class GodotHost extends EventTarget {
       unloadAfterInit: false,
       canvas: this.editorCanvas,
       canvasResizePolicy: 0,
-      persistentPaths: ['/home/web_user'],
+      persistentPaths: this.persistentPaths,
       emscriptenPoolSize: concurrency,
       godotPoolSize: Math.floor(concurrency / 3),
       onProgress,

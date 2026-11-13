@@ -6,7 +6,7 @@ extends EditorPlugin
 ## 이 플러그인이 Godot 에디터 API로 처리하고 window.__godotBridgeResolve(json) 으로 응답한다.
 ## 웹 에디터가 아닌 환경(데스크톱 Godot 등)에서는 아무 동작도 하지 않는다.
 
-const BRIDGE_VERSION := 2
+const BRIDGE_VERSION := 3
 const RUNNER_SCENE := "res://addons/web_editor_bridge/runner/runner.tscn"
 const RUNNER_CONFIG := "res://.godot/gwe_runner.json"
 const IGNORED_DIRS := [".godot", ".git", ".import"]
@@ -67,7 +67,13 @@ func _on_call(args: Array) -> void:
 		"ping":
 			result = {"version": BRIDGE_VERSION, "godot": Engine.get_version_info().string}
 		"list_files":
-			result = _list_files(str(params.get("dir", "")))
+			result = _list_files(str(params.get("dir", "")), bool(params.get("include_cache", false)))
+		"file_manifest":
+			result = _file_manifest()
+		"runtime_files":
+			while EditorInterface.get_resource_filesystem().is_scanning():
+				await get_tree().process_frame
+			result = _list_files("", true)
 		"read_file":
 			result = _read_file(str(params.get("path", "")), str(params.get("encoding", "utf8")))
 		"write_files":
@@ -152,23 +158,30 @@ func _res_path(path: String) -> String:
 	return "res://" + p
 
 
-func _list_files(dir: String) -> Array:
+func _list_files(dir: String, include_cache: bool = false) -> Array:
 	var out := []
 	var start := "res://" if dir == "" else _res_path(dir)
 	if start != "":
-		_walk(start, out)
+		_walk(start, out, include_cache)
 	return out
 
 
-func _walk(dir: String, out: Array) -> void:
+func _file_manifest() -> Array:
+	var files := _list_files("")
+	for file in files:
+		file["hash"] = FileAccess.get_sha256("res://" + file.path)
+	return files
+
+
+func _walk(dir: String, out: Array, include_cache: bool) -> void:
 	var d := DirAccess.open(dir)
 	if d == null:
 		return
 	d.include_hidden = true
 	for sub in d.get_directories():
-		if sub in IGNORED_DIRS:
+		if sub == ".git" or (not include_cache and sub in IGNORED_DIRS):
 			continue
-		_walk(dir.path_join(sub), out)
+		_walk(dir.path_join(sub), out, include_cache)
 	for f in d.get_files():
 		var full := dir.path_join(f)
 		var fa := FileAccess.open(full, FileAccess.READ)

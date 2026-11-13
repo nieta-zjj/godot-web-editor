@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.repository == 'Yeobi1124/godot-web-editor'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,7 +41,7 @@ jobs:
   # Pages가 꺼져 있으면(Settings → Pages → Source: GitHub Actions) 이 작업만 실패하고, 에디터는 Worker에서 조각을 받는다.
   engine-mirror:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.repository == 'Yeobi1124/godot-web-editor' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -71,7 +72,7 @@ jobs:
   deploy:
     needs: [test, engine-mirror]
     # 미러 배포가 실패해도 Worker는 배포한다 (그때는 미러 없이)
-    if: always() && needs.test.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: always() && github.repository == 'Yeobi1124/godot-web-editor' && needs.test.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

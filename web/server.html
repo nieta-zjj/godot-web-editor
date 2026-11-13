@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Godot 项目编辑器</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/server.css">
+</head>
+<body>
+  <header id="topbar">
+    <strong class="brand">Godot</strong>
+    <span id="project-name" class="repo">服务器项目</span>
+    <span id="save-status" role="status">正在连接</span>
+    <span class="spacer"></span>
+    <button id="save" disabled>保存到服务器</button>
+    <button id="pull" disabled>读取更新</button>
+    <button id="toggle-files" disabled>文件与日志</button>
+    <button id="history" disabled>版本历史</button>
+    <button id="download" disabled>下载项目</button>
+    <button id="projects">项目列表</button>
+    <button id="logout">退出登录</button>
+  </header>
+  <main id="workspace">
+    <div id="editor-area">
+      <canvas id="editor-canvas" tabindex="0" aria-label="Godot 编辑器"></canvas>
+      <div id="game-layer" hidden>
+        <div class="game-bar"><span>游戏运行中</span><button id="stop-game">停止游戏</button></div>
+        <div id="game-stage"><canvas id="game-canvas" tabindex="0" aria-label="游戏画面"></canvas></div>
+      </div>
+      <div id="loading"><div class="loading-box"><p id="loading-text">正在连接服务器</p><progress id="loading-bar" max="1"></progress></div></div>
+    </div>
+    <aside id="server-files" hidden>
+      <label for="file-select">项目文件</label>
+      <select id="file-select"><option value="">选择文件</option></select>
+      <button id="refresh-files">刷新文件列表</button>
+      <label for="file-path">文件路径</label><input id="file-path" type="text" placeholder="scripts/player.gd">
+      <label for="file-content">文件内容</label><textarea id="file-content" spellcheck="false"></textarea>
+      <div class="row"><button id="write-file">保存文件</button><button id="delete-file" class="danger">删除文件</button></div>
+      <label for="logs">运行日志</label><pre id="logs"></pre>
+    </aside>
+  </main>
+  <div id="operation-error" role="alert" hidden><span id="error-text"></span><button id="resolve-error" hidden>处理冲突</button></div>
+  <dialog id="login-dialog">
+    <form id="login-form"><h2>登录项目服务器</h2><label for="access-token">访问密钥</label><input id="access-token" type="password" required autocomplete="current-password"><p id="login-error" class="error" role="alert"></p><button class="primary" type="submit">登录</button></form>
+  </dialog>
+  <dialog id="project-dialog">
+    <h2>服务器项目</h2><div id="project-list"></div><p id="project-empty" class="muted" hidden>服务器中还没有项目。</p>
+    <form id="create-project"><label for="new-name">项目名称</label><input id="new-name" type="text" required maxlength="120"><button type="submit">创建项目</button></form>
+    <form id="import-project"><label for="import-name">导入项目名称</label><input id="import-name" type="text" required maxlength="120"><label for="import-zip">Godot 项目 ZIP</label><input id="import-zip" type="file" accept=".zip" required><button type="submit">上传项目</button></form>
+    <p id="project-error" class="error" role="alert"></p>
+  </dialog>
+  <dialog id="history-dialog"><h2>服务器版本历史</h2><div id="history-list"></div><button id="close-history">关闭</button></dialog>
+  <dialog id="conflict-dialog"><form id="conflict-form"><h2>选择冲突文件的内容</h2><p>所选内容会用于下一次保存。服务器版本保留在历史记录中。</p><div id="conflict-files"></div><button type="submit">应用选择并保存</button><button id="cancel-conflict" type="button">取消</button></form></dialog>
+  <script src="godot.editor.js"></script>
+  <script type="module" src="js/server-app.js"></script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 //  2) WebMCP        : 브라우저가 navigator.modelContext(또는 document.modelContext)를 지원하면 도구를 등록
 
 import { toMcpContent } from './tool-defs.js';
+import { SERVER_HELP } from './server-tool-defs.js';
 
 export { toMcpContent };
 
@@ -26,7 +27,7 @@ export function installGodotAI(api) {
   const call = (name, args) => api.call(name, args);
   const ai = {
     version: 1,
-    help: () => HELP,
+    help: () => api.info.storage === 'server' ? SERVER_HELP : HELP,
     tools: () => api.toolDescriptors(),
     call,
     status: () => call('get_status'),

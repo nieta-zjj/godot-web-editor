@@ -2,12 +2,25 @@
   "name": "godot-web-editor",
   "version": "0.2.0",
   "private": true,
-  "description": "GitHub 저장소와 자동 동기화되는 브라우저용 Godot 에디터 (Cloudflare Worker, Claude MCP 연동)",
+  "description": "Godot Web Editor with server-owned project storage and MCP tools",
   "type": "module",
+  "engines": { "node": ">=24" },
   "scripts": {
+    "start": "node server/main.js",
+    "engine": "node scripts/download-engine.mjs",
+    "test": "node --test tests/server-storage.test.mjs",
+    "test:server-e2e": "node tests/e2e-server.mjs",
     "build": "scripts/build-worker.sh",
     "test:e2e": "node tests/e2e-cloud.mjs && node tests/e2e-editor.mjs",
     "test:runner": "node --test tests/runner-cli.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "cookie-parser": "1.4.7",
+    "express": "5.3.0",
+    "fflate": "0.8.3",
+    "ws": "8.23.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "playwright": "1.63.0"

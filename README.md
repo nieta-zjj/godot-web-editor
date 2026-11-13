@@ -1,86 +1,90 @@
-# godot-web-editor
+# Godot Web Editor
 
-로컬 설치 없이 **브라우저만으로** Godot 4 게임을 만들기 위한 웹 에디터입니다.
-공식 Godot 웹 에디터를 그대로 쓰고, 프로젝트는 **GitHub 저장소에 자동으로 동기화**됩니다.
-Claude 같은 AI가 프로젝트를 읽고 고칠 수 있도록 도구 API도 함께 제공합니다.
+浏览器中的 Godot 4.7.2 编辑器。项目文件保存在服务器的普通目录，浏览器负责编辑和运行；服务器同时提供文件历史、ZIP 导入导出和 MCP 操作接口。
 
-- 에디터 주소: **https://godotweb.solitary-cloud-8e56.workers.dev** (Cloudflare Worker)
-- 게임 프로젝트: 별도의 GitHub 저장소 (비공개 가능)
-- 로그인: **"GitHub로 로그인"** 한 번. GitHub 토큰은 Worker에만 보관되고 브라우저에는 남지 않습니다.
-- 서비스 설정(Cloudflare, GitHub App): [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md)
+项目基于 [Yeobi1124/godot-web-editor](https://github.com/Yeobi1124/godot-web-editor)，采用 MIT 许可证。
 
-## 사용법
+## 运行
 
-1. 데스크톱용 **Chrome 또는 Edge**로 에디터 주소를 엽니다.
-2. **GitHub로 로그인**을 누르고, 처음이면 앱을 내 계정에 설치하면서 쓸 저장소를 고릅니다.
-3. 프로젝트 목록에서 게임 저장소(예: `Yeobi1124/godot-test`)를 고릅니다. 마지막에 연 프로젝트는 다음부터 바로 열립니다.
-   - 목록에 없는 저장소는 선택 화면의 **GitHub에서 앱에 저장소 추가/변경** 링크로 추가합니다.
-   - 다른 프로젝트로 바꾸려면 **설정 → 다른 저장소 연결**을 누릅니다.
-4. 에디터가 열리면 평소처럼 작업하고 `Ctrl+S`로 저장합니다. **약 30초마다 자동으로 GitHub에 커밋**됩니다(작성자는 본인).
-   바로 올리려면 상단의 **지금 저장**을 누르세요.
-5. 다른 곳(Claude Code, Codespaces, 다른 PC)에서 저장소에 커밋하면 **약 30초 안에 열려 있는 에디터에 반영**됩니다.
-   바로 받으려면 **원격 확인**을 누르세요.
-
-상단 표시줄의 상태: `동기화됨 · 커밋` / `저장 대기 N개` / `받는 중…` / `오류`. 초록 점은 에디터 브리지 연결 상태입니다.
-
-### 처음 열 때 저장소에 추가되는 것
-
-- `addons/web_editor_bridge/`: 에디터와 페이지를 잇는 작은 에디터 플러그인입니다.
-  **웹 에디터가 아닌 곳(데스크톱 Godot, Codespaces)에서는 아무 동작도 하지 않습니다.**
-- `project.godot`의 `[editor_plugins]`에 위 플러그인 활성화 항목
-- 저장소가 비어 있으면 `.gitignore`와 기본 `project.godot`
-
-## AI와 함께 쓰기
-
-| 방법 | 설명 |
-|---|---|
-| **GitHub 경유** (Claude Code 등) | 저장소에 커밋하면 열려 있는 에디터에 자동 반영됩니다. 설치가 필요 없습니다. |
-| **Claude in Chrome 등 브라우저 AI** | 페이지가 `window.godotAI` API를 제공합니다. **AI 패널 → AI 연결** 탭의 안내문을 복사해 AI에게 주세요. |
-| **JS 실행 없이 클릭만 하는 AI** | **AI 패널 → 파일** 탭(경로·내용 입력란, 파일 저장 버튼)을 쓰면 됩니다. |
-| **WebMCP** | 브라우저가 `navigator.modelContext`를 지원하면 같은 도구를 자동으로 등록합니다. (실험적 표준) |
-| **MCP** (claude.ai·모바일·Claude Code) | 커넥터에 `에디터주소/mcp`를 추가하고 GitHub로 로그인하면 끝입니다. 에디터가 열려 있으면 Claude가 그 에디터를 실시간으로 조종하고, 없으면 GitHub에 바로 커밋합니다. [연결 방법](docs/CLOUD-SETUP.md#claude-연결-mcp) |
-
-```js
-godotAI.help()                                   // 사용법
-await godotAI.status()                           // 저장소/동기화/에디터 상태
-await godotAI.readFile('main.tscn')
-await godotAI.writeFile('main.tscn', text, { message: '적 배치' })
-await godotAI.setMainScreen('2D'); await godotAI.screenshot()   // { type: 'image', data: base64 PNG }
-await godotAI.run(); await godotAI.logs({ level: 'error' }); await godotAI.stop()
-```
-
-도구 목록: `get_status`, `list_files`, `read_file`, `write_files`, `delete_files`, `get_editor_state`,
-`open_scene`, `set_main_screen`, `screenshot`, `run_project`, `stop_project`, `get_logs`, `run_tests`, `check_scripts`, `sync_now`, `pull_remote`
-(`run_tests`/`check_scripts`는 에디터가 열려 있으면 브라우저에서, 없으면 GitHub Actions에서 실행: [테스트 실행기](docs/CLOUD-SETUP.md#테스트-실행기-run_tests-check_scripts))
-
-## 알아둘 점
-
-- Godot 웹 에디터의 한계: **Compatibility 렌더러만**, **GDScript만**(C# 불가), 데스크톱 Chrome/Edge 권장(모바일 불가)
-- 충돌(내 브라우저와 원격이 같은 파일을 동시에 바꾼 경우)은 **브라우저 쪽 내용을 유지**합니다.
-  원격 버전은 GitHub 커밋 기록에 남아 있으며, 로그(AI 패널 → 로그)에 커밋 번호가 표시됩니다.
-- 같은 프로젝트를 **여러 탭에서 동시에 열 수 없습니다** (파일이 서로 덮어써지는 것을 막기 위해).
-- 탭을 닫아도 아직 올라가지 않은 변경은 브라우저에 남아 있다가, 다음에 열 때 올라갑니다.
-- 파일 하나가 100MB를 넘으면 GitHub에 올릴 수 없습니다.
-- 공용 PC에서는 작업이 끝난 뒤 **설정 → 로그아웃**을 누르세요.
-
-## 개발
+需要 Node.js 24 或更新版本。
 
 ```bash
-npm ci && npx playwright install chromium   # E2E용 브라우저 (처음 한 번)
-scripts/build-worker.sh        # dist-worker/ 생성: 공식 Godot 웹 에디터(체크섬 고정) + web/ + 엔진 조각, 헤더
-(cd worker && npm ci && npm test)   # Worker 통합 테스트 (wrangler dev + 가짜 GitHub OAuth)
-node tests/e2e-cloud.mjs       # 브라우저 E2E: 로그인 → 에디터 → 자동 커밋 → 토큰 갱신 → 로그아웃 (playwright 필요)
+npm ci
+npm run engine
+export GWE_DATA_DIR="$PWD/data"
+export GWE_ORIGIN="http://localhost:8788"
+export GWE_TOKEN="$(openssl rand -hex 32)"
+npm start
 ```
 
-`main`에 푸시하면 GitHub Actions(**클라우드 Worker** 워크플로)가 테스트 후 Cloudflare에 배포합니다.
-웹 코드나 Worker가 바뀌는 push와 PR에서는 **E2E** 워크플로가 실제 Godot 에디터를 헤드리스 Chromium으로 띄워 위 E2E와 실행기 테스트를 돌립니다.
+在浏览器打开 `http://localhost:8788`，使用 `GWE_TOKEN` 登录。访问密钥应通过进程管理器的环境变量持久配置。默认仅监听 `127.0.0.1`；监听其他地址时设置 `HOST`，端口通过 `PORT` 配置。通过域名访问时需要 HTTPS，并将 `GWE_ORIGIN` 设置为实际页面地址。
+
+`npm run engine` 下载官方 Godot Web 编辑器并校验 SHA-256。引擎文件保存在 `.cache/engine/`。
+
+## 项目文件
+
+每个项目的当前文件保存在：
+
+```text
+data/projects/<项目 UUID>/files/
+```
+
+该目录直接包含 `project.godot`、场景、脚本和素材，可以使用服务器上的 Godot、Git、编辑器或 AI Agent 直接操作。服务器在下一次读取项目时检测这些文件的修改，保存历史并向网页提供更新。`.godot/` 和 `.git/` 留在服务器目录中，不会发送到浏览器。
+
+服务器数据目录还包含：
+
+- `objects/`：按内容 SHA-256 保存的普通文件，用于上传和历史版本。
+- `metadata.sqlite`：项目索引、版本清单、会话及待完成写入记录，文件内容保存在文件系统。
+- `staging/`：原子写入期间的临时文件。
+
+应使用单个服务进程管理同一个数据目录。停止服务后备份整个 `GWE_DATA_DIR` 可以同时保留工程文件、历史和元数据。`objects/` 保留历史内容，当前不会自动清除旧版本。
+
+## 浏览器保存行为
+
+编辑器和游戏的 `persistentPaths` 均为空。项目文件不写入 IndexedDB 或 localStorage。登录状态使用 HttpOnly Cookie，Godot 引擎文件可以由浏览器 HTTP 缓存保存。
+
+编辑器每两秒检查一次文件修改，保存打开的场景，将变化的文件上传服务器，并提交包含版本号的文件清单。页面显示“已保存到服务器”时，该版本已经完成服务器文件写入。网络错误或冲突会显示错误并停止自动保存；处理后点击“保存到服务器”继续。
+
+尚未得到服务器确认的修改只存在于当前编辑器内存。关闭浏览器会丢失这些修改，因此应确认保存状态后离开。清除网站数据或更换浏览器后，可以重新登录并打开服务器上的项目。
+
+不同文件的并发修改自动合并。同一文件两边同时修改时，页面要求选择当前编辑器内容或服务器内容。服务器拒绝基于旧版本的覆盖请求。删除文件需要明确确认，网页和 MCP 都执行服务器上的相同检查。
+
+## 项目操作
+
+- 新建项目或上传包含一个 Godot 项目的 ZIP。
+- 使用 Godot 编辑场景与脚本，或使用网页文件面板编辑文本文件。
+- 查看版本历史、下载任意版本、恢复到指定版本。恢复会产生新的历史版本。
+- 在浏览器运行游戏、查看日志、执行项目测试和 GDScript 检查。
+
+上传接口接受最多 256 MiB 的单文件或 ZIP；ZIP 解压后最多 512 MiB。项目大小仍受浏览器内存和 Web Godot 能力约束。服务器游戏运行使用独立 iframe，启动时从编辑器内存复制项目与导入缓存，停止时释放整个游戏页面。
+
+## MCP
+
+地址为服务器的 `/mcp`，客户端需要携带：
+
+```http
+Authorization: Bearer <GWE_TOKEN>
+```
+
+通过 `list_projects` 获取项目 UUID。文件操作和版本信息由服务器处理，编辑器关闭时也可使用。写入必须提供 `get_status` 或 `read_file` 返回的 `revision`，参数名为 `base_revision`；删除还需要 `confirm_deletes: true`。
+
+打开项目后，网页通过 WebSocket 连接服务器。场景操作、截图、游戏运行、日志和测试工具发送到这个浏览器中的 Godot。项目同时在多个浏览器打开时，编辑器控制工具要求保留一个连接，避免请求发送到不确定的编辑器。
+
+服务使用单个共享访问密钥管理工作区，持有密钥的客户端可以访问全部项目。它适用于个人或相互信任的团队工作区。
+
+页面也提供 `window.godotAI` 和浏览器支持时的 WebMCP 接口。
+
+## 验证
 
 ```bash
-node tests/e2e-editor.mjs      # 에디터 동작 E2E: 원격 반영, AI 패널 입력, 로그, 게임 실행, 새로고침
-GODOT_BIN=<godot 4.7.2> node --test tests/runner-cli.test.mjs   # 테스트 실행기(run_tests/check_scripts) 스크립트
+npm test
+npm run engine
+npx playwright install chromium
+npm run test:server-e2e
 ```
 
-Godot 버전을 바꾸려면 `scripts/build.sh`의 `GODOT_VERSION`과 `GODOT_ZIP_SHA256`을 함께 고치고 E2E 테스트를 돌리세요.
-에디터 내부 동작(파일 시스템 형식, 엔진 API)에 의존하는 부분이 있어 버전마다 확인이 필요합니다.
+服务器测试使用实际 HTTP 服务、文件系统、SQLite 和 MCP 客户端。浏览器测试使用真实 Chromium 和 Godot，检查导入、保存、游戏运行、脚本检查、并发冲突、服务器重启及新浏览器恢复。测试不替换网络服务或 Godot 执行结果。
 
-구조와 동기화 알고리즘, 브리지 프로토콜은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)에 있습니다.
+可以通过 `CHROME_BIN` 指定 Chromium 路径。`GWE_BROWSER_TMP` 指定 Chromium 临时目录；目录应位于允许写入的位置，且路径足够短，以满足 Unix socket 的路径长度限制。
+
+实现细节见 [架构说明](docs/ARCHITECTURE.md)。Cloudflare Worker 入口及其配置保留在 `worker/` 和 [CLOUD-SETUP.md](docs/CLOUD-SETUP.md)，自托管文件服务使用本文所述入口。

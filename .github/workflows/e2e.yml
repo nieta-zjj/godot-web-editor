@@ -22,6 +22,7 @@ env:
 
 jobs:
   browser:
+    if: github.repository == 'Yeobi1124/godot-web-editor'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -62,6 +63,7 @@ jobs:
           retention-days: 7
 
   runner:
+    if: github.repository == 'Yeobi1124/godot-web-editor'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
