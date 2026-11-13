@@ -11,6 +11,7 @@
 import * as idb from './idbfs.js';
 import { MassDeleteError } from './sync.js';
 import { TOOL_DEFS, toDescriptor } from './tool-defs.js';
+import { serverToolDescriptors } from './server-tool-defs.js';
 import { base64ToBytes, bytesToBase64, looksLikeText, normalizeProjectPath, shortSha, utf8Decode } from './util.js';
 
 export class ToolError extends Error {}
@@ -31,7 +32,7 @@ export class ProjectAPI extends EventTarget {
 
   /** MCP tools/list 형식의 도구 목록 */
   toolDescriptors() {
-    return TOOL_DEFS.map(toDescriptor);
+    return this.info.storage === 'server' ? serverToolDescriptors() : TOOL_DEFS.map(toDescriptor);
   }
 
   async call(name, args = {}) {
@@ -95,15 +96,18 @@ export class ProjectAPI extends EventTarget {
     // (게임은 IndexedDB에서 파일을 읽는다. 방금 쓴 파일이 아직 저장되지 않았으면 예전 내용으로 실행된다)
     const nonce = Math.random().toString(36).slice(2);
     await this.bridge.call('prepare_runner', { mode, filter, nonce }, 30000);
-    const cfgPath = `${this.info.projectDir}/.godot/gwe_runner.json`;
-    for (let i = 0; i < 100; i++) {
-      const bytes = await idb.readFile(cfgPath).catch(() => null);
-      if (bytes && utf8Decode(bytes).includes(nonce)) break;
-      await new Promise((res) => setTimeout(res, 100));
+    if (this.host.persistentPaths.length) {
+      const cfgPath = `${this.info.projectDir}/.godot/gwe_runner.json`;
+      for (let i = 0; i < 100; i++) {
+        const bytes = await idb.readFile(cfgPath).catch(() => null);
+        if (bytes && utf8Decode(bytes).includes(nonce)) break;
+        await new Promise((res) => setTimeout(res, 100));
+      }
     }
     await this.bridge.call('play_runner', {}, 30000);
     const r = await done;
     // 실행기 씬은 결과를 찍고 스스로 끝난다. 끝나지 않았으면 정리해서 다음 실행을 막지 않게 한다
+    if (!this.host.persistentPaths.length) this.host.stopGame();
     if (!(await this.host.waitGameExit(5000))) await this.#ensureGameStopped();
     await this.bridge.call('stop').catch(() => {}); // 에디터의 "실행 중" 표시도 정리
     const output = this.logs
@@ -133,9 +137,9 @@ export class ProjectAPI extends EventTarget {
       if (this.bridge.ready) editor = await this.bridge.call('get_state').catch(() => null);
       return {
         mode: 'editor',
-        repository: `${this.info.owner}/${this.info.repo}`,
-        branch: this.info.branch,
-        head_commit: s.head,
+        ...(this.info.storage === 'server'
+          ? { storage: 'server', project: this.info.projectId, revision: s.head }
+          : { repository: `${this.info.owner}/${this.info.repo}`, branch: this.info.branch, head_commit: s.head }),
         sync_phase: s.phase,
         unsynced_files: s.pending,
         conflicts: s.conflicts,
@@ -155,6 +159,7 @@ export class ProjectAPI extends EventTarget {
         const files = await this.bridge.call('list_files', { dir: prefix.replace(/\/$/, '') });
         return { files: files.map((f) => ({ path: f.path, size: f.size })) };
       }
+      if (this.info.storage === 'server') this.#requireBridge();
       const local = await idb.readTree(this.info.projectDir);
       return {
         files: [...local.entries()]
@@ -170,6 +175,7 @@ export class ProjectAPI extends EventTarget {
         const r = await this.bridge.call('read_file', { path: p, encoding: 'base64' });
         bytes = base64ToBytes(r.content);
       } else {
+        if (this.info.storage === 'server') this.#requireBridge();
         const f = (await idb.readTree(this.info.projectDir)).get(p);
         if (!f) throw new ToolError(`파일이 없습니다: ${p}`);
         bytes = f.contents;
@@ -229,6 +235,7 @@ export class ProjectAPI extends EventTarget {
     });
 
     this.#on('stop_project', async () => {
+      if (!this.host.persistentPaths.length) this.host.stopGame();
       if (this.bridge.ready) await this.bridge.call('stop').catch(() => {});
       this.host.stopGame();
       return { stopped: true };
@@ -246,6 +253,11 @@ export class ProjectAPI extends EventTarget {
     this.#on('check_scripts', async () => this.#runRunner('check', ''));
 
     this.#on('sync_now', async ({ message }) => {
+      if (this.info.storage === 'server') {
+        this.#requireBridge();
+        await this.bridge.call('save_all');
+        return this.sync.push(message);
+      }
       if (this.bridge.ready) await this.bridge.call('save_all').catch(() => {});
       await new Promise((r) => setTimeout(r, 300));
       let res;
